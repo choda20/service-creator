@@ -33,13 +33,16 @@ create_user () {
     fi
 }
 
-create_service () {
-    cd /etc/systemd/system
-    
+copy_files_to_home () {
+    sudo cp -r $service_folder /home/$service_user/$service_name
 }
+
+
 main () {
     create_user
+    copy_files_to_home
 }
+
 ####################################################################################################################
 # Flag Handling                                                                                                    #
 ####################################################################################################################
