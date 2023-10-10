@@ -168,6 +168,7 @@ main () {
     fi
 
     create_service_file $service_user "$service_name" $service_template "$service_folder_dest" "$script_path"
+
     start_service "$service_name"
 }
 
