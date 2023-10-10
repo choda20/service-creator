@@ -24,7 +24,7 @@ service_name=$1
 service_folder=$2
 service_exec=$3
 service_folder_dest="/home/$service_user/$service_name"
-script_path="$service_folder_dest/$service_exec"
+script_path="/usr/local/bin/$service_name.sh"
 force=$4
 if [ -z "$4" ] 
     then
@@ -37,8 +37,11 @@ create_user () {
     fi
 }
 
-copy_files_to_home () {
+copy_files () {
     sudo cp -r "$service_folder" "$service_folder_dest"
+    sudo mv "$service_folder_dest/$service_exec" "$script_path"
+    sudo chmod 744 "$script_path"
+    sudo chown "$service_user" "$script_path"
 }
 
 create_service_file () {
@@ -50,10 +53,16 @@ create_service_file () {
     sudo mv "$service_file" "/etc/systemd/system/$service_name.service"
 }
 
+start_service () {
+    sudo systemctl daemon-reload
+    sudo systemctl start "$service_name.service"
+}
+
 main () {
     create_user
-    copy_files_to_home
+    copy_files
     create_service_file
+    start_service
 }
 
 main
