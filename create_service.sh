@@ -20,20 +20,24 @@ Help () {
 ####################################################################################################################
 service_user="service_agent"
 service_template="service_template.txt"
-service_name=$1
-service_folder=$2
-service_exec=$3
-service_folder_dest="/home/$service_user/$service_name"
-script_path="/usr/local/bin/$service_name.sh"
-force=$4
-if [ -z "$4" ] 
-    then
-        force=False
-fi
+
+get_cli_arguments () {
+    echo "Enter service name: "
+    read -r service_name
+    echo "Enter full path to service folder: "
+    read -r service_folder
+    echo "Enter relative path to service executable (from inside the service folder): "
+    read -r service_exec
+    echo "Do you want the script to run silently? (Y/N) "
+    read -r force
+    service_folder_dest="/home/$service_user/$service_name"
+    script_path="/usr/local/bin/$service_name.sh"
+    echo "Starting script with given arguments"
+}
 
 create_user () {
     if ! id "$service_user" > /dev/null 2>&1; then
-        sudo useradd -r -m -s /sbin/nologin "$service_user"
+        sudo useradd -r -m -s /sbin/nologin "$service_user" 
     fi
 }
 
@@ -59,7 +63,7 @@ start_service () {
 }
 
 check_service_status () {
-    status=$(systemctl is-active --quiet "$service_name")
+    status=$(systemctl is-active "$service_name")
     if [ "$status" = "active" ]; then
         echo "Service started successfully"
     else
@@ -68,6 +72,7 @@ check_service_status () {
 }
 
 main () {
+    get_cli_arguments
     create_user
     copy_files
     create_service_file
