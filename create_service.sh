@@ -32,7 +32,7 @@ if [ -z "$4" ]
 fi
 
 create_user () {
-    if ! id "$service_user" > dev/null 2>&1; then
+    if ! id "$service_user" > /dev/null 2>&1; then
         sudo useradd -r -m -s /sbin/nologin "$service_user"
     fi
 }
