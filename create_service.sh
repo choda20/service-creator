@@ -58,11 +58,21 @@ start_service () {
     sudo systemctl start "$service_name.service"
 }
 
+check_service_status () {
+    status=$(systemctl is-active --quiet "$service_name")
+    if [ "$status" = "active" ]; then
+        echo "Service started successfully"
+    else
+        echo "Service could not be started"
+    fi
+}
+
 main () {
     create_user
     copy_files
     create_service_file
     start_service
+    check_service_status
 }
 
 main
