@@ -33,6 +33,10 @@ create_user () {
     fi
 }
 
+create_service () {
+    cd /etc/systemd/system
+    
+}
 main () {
     create_user
 }
