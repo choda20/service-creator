@@ -29,9 +29,10 @@ does_service_exist () {
 }
 
 does_dir_exist () {
-    if [ ! -d "$1" ]; then
-        echo "The directory provided does not exist. Exisiting script."
-        exit
+    if [ -d "$1" ]; then
+        return 0
+    else    
+        return 1
     fi
 }
 
@@ -48,7 +49,10 @@ get_cli_arguments () {
 
     echo "Enter full path to service folder: "
     read -r service_folder
-    does_dir_exist "$service_folder"
+    if [ $(does_dir_exist "$service_folder") -eq 1 ]; then
+        echo "The directory provided does not exist. Exisiting script."
+        exit
+    fi
 
     echo "Enter relative path to service executable (from inside the service folder): "
     read -r service_exec
@@ -152,9 +156,19 @@ main () {
     script_path="/usr/local/bin/$service_name.sh"
 
     create_user "$service_user"
-    move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path" $service_user
+
+    if [ "$force" != "Y" ] && [ $(does_dir_exist $service_folder_dest) -eq 0 ]; then
+        echo "Service Folder $service_folder_dest already exists, and needs to be overriden. override folder? (Y/N): "
+        read -r move_service_files_prompt
+        if [ "$move_service_files_prompt" = "Y" ]; then
+            move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path" $service_user
+        fi
+    else
+        move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path" $service_user
+    fi
+
     create_service_file $service_user "$service_name" $service_template "$service_folder_dest" "$script_path"
-    start_service $service_name
+    start_service "$service_name"
 }
 
 remove_service() {
