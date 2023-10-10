@@ -21,13 +21,29 @@ Help () {
 service_user="service_agent"
 service_template="service_template.txt"
 
+does_dir_exist () {
+    if [ ! -d "$1" ]; then
+        echo "The directory provided does not exist. Exisiting script."
+        exit
+    fi
+}
+
+does_exec_exist () {
+    if [ ! -f "$1" ]; then
+        echo "The file provided does not exist, or is not a regular file. Exisiting script."
+        exit
+    fi
+}
+
 get_cli_arguments () {
     echo "Enter service name: "
     read -r service_name
     echo "Enter full path to service folder: "
     read -r service_folder
+    does_dir_exist "$service_folder"
     echo "Enter relative path to service executable (from inside the service folder): "
     read -r service_exec
+    does_exec_exist "$service_exec"
     echo "Do you want the script to run silently? (Y/N) "
     read -r force
     service_folder_dest="/home/$service_user/$service_name"
@@ -37,29 +53,61 @@ get_cli_arguments () {
 
 create_user () {
     if ! id "$service_user" > /dev/null 2>&1; then
-        sudo useradd -r -m -s /sbin/nologin "$service_user" 
+        {
+            sudo useradd -r -m -s /sbin/nologin "$service_user" 
+            echo "service user created successfully."
+            } || {
+            echo "service user could not be created. Exisiting script."
+            exit
+        }
     fi
 }
 
 copy_files () {
-    sudo cp -r "$service_folder" "$service_folder_dest"
-    sudo mv "$service_folder_dest/$service_exec" "$script_path"
-    sudo chmod 744 "$script_path"
-    sudo chown "$service_user" "$script_path"
+    {
+        sudo cp -r "$service_folder" "$service_folder_dest"
+        sudo mv "$service_folder_dest/$service_exec" "$script_path"
+        sudo chmod 744 "$script_path"
+        sudo chown "$service_user" "$script_path"
+    } || {
+        echo "could not move service files to service user directory. Exisiting script."
+        remove_service
+    }
 }
 
 create_service_file () {
-    service_file="/home/$service_user/$service_name/$service_name.service"
-    sudo cp -r $service_template "$service_file"
-    sudo sed -i "s@<user>@$service_user@g" "$service_file"
-    sudo sed -i "s@<working_directory>@$service_folder_dest@g" "$service_file"
-    sudo sed -i "s@<script_path>@$script_path@g" "$service_file"
-    sudo mv "$service_file" "/etc/systemd/system/$service_name.service"
+    {
+        service_file="/home/$service_user/$service_name/$service_name.service"
+        sudo cp -r $service_template "$service_file"
+        sudo sed -i "s@<user>@$service_user@g" "$service_file"
+        sudo sed -i "s@<working_directory>@$service_folder_dest@g" "$service_file"
+        sudo sed -i "s@<script_path>@$script_path@g" "$service_file"
+        sudo mv "$service_file" "/etc/systemd/system/$service_name.service"
+    } || {
+        echo "could not create service file. Exisiting script."
+        remove_service
+    }
+}
+
+reload_service () {
+    sudo systemctl daemon-reload
+    sudo systemctl start "$service_name.service"
 }
 
 start_service () {
-    sudo systemctl daemon-reload
-    sudo systemctl start "$service_name.service"
+    if [ "$force" = "Y" ]; then
+        reload_service
+        check_service_status
+    else
+        echo "In order for the service to start the systemctl daemon needs to be reloaded. reload? (Y/N): "
+        read -r reset_daemon
+        if [ "$reset_daemon" = "Y" ]; then
+            reload_service
+            check_service_status
+        else
+            echo "Service created but was not run."
+        fi
+    fi
 }
 
 check_service_status () {
@@ -77,7 +125,14 @@ main () {
     copy_files
     create_service_file
     start_service
-    check_service_status
+}
+
+remove_service() {
+    sudo rm -r /home/service_agent/test_service > /dev/null 2>&1
+    sudo rm /home/service_agent/service_log.txt > /dev/null 2>&1
+    sudo rm /etc/systemd/system/test_service.service > /dev/null 2>&1
+    sudo rm /usr/local/bin/test_service.sh > /dev/null 2>&1
+    exit
 }
 
 main
