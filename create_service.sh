@@ -92,13 +92,24 @@ move_service_files () {
     local exec_relative_path="$3"
     local new_script_path="$4"
     local user="$5"
-    local log_file="$6"
+    local force="$6"
+    local log_file="$7"
+    local move_files="Y"
     {
-        sudo cp -r "$original_folder_path" "$new_folder_path"
-        sudo mv "$new_folder_path/$exec_relative_path" "$new_script_path"
-        sudo chmod 744 "$new_script_path"
-        sudo chown "$user" "$new_script_path"
-        echo "Moved service files to service folder" | tee "$log_file"
+        if [ "$force" != "Y" ] && [ $(does_dir_exist $service_folder_dest) -eq 0 ]; then
+            echo "Service Folder $service_folder_dest already exists, and needs to be overriden. override folder? (Y/N): " | tee "$log_file"
+            read -r move_files
+            echo "$move_files" >> "$log_file"
+        fi
+
+        if [ "$move_files" = "Y" ]; then
+            sudo cp -r "$original_folder_path" "$new_folder_path"
+            sudo mv "$new_folder_path/$exec_relative_path" "$new_script_path"
+            sudo chmod 744 "$new_script_path"
+            sudo chown "$user" "$new_script_path"
+            echo "Moved service files to service folder" | tee "$log_file"
+        fi
+        
     } || {
         echo "could not move service files to service user directory. Exisiting script." | tee "$log_file"
         exit
@@ -168,16 +179,7 @@ main () {
 
     create_user "$service_user" "$log_file"
 
-    if [ "$force" != "Y" ] && [ $(does_dir_exist $service_folder_dest) -eq 0 ]; then
-        echo "Service Folder $service_folder_dest already exists, and needs to be overriden. override folder? (Y/N): " | tee "$log_file"
-        read -r move_service_files_prompt
-        echo "$move_service_files_prompt" >> "$log_file"
-        if [ "$move_service_files_prompt" = "Y" ]; then
-            move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path" $service_user "$log_file"
-        fi
-    else
-        move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path" $service_user "$log_file"
-    fi
+    move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path" $service_user  "$force" "$log_file"
 
     create_service_file $service_user "$service_name" $service_template "$service_folder_dest" "$script_path" "$log_file"
 
