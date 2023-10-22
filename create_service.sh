@@ -28,11 +28,12 @@ does_dir_exist () {
     fi
 }
 
-does_file_exist () {
+is_file_exec () {
     local file="$1"
     local log_file="$2"
-    if [ ! -f "$file" ]; then
-        echo "The file provided does not exist, or is not a regular file. Exiting script." | tee -a "$log_file"
+    local file_type=$(file -b "$file")
+    if [ ! -x "$file" ] && [[ "$file_type" != *script* ]]; then
+        echo "The file provided does not exist, or is not a script/executable file. Exiting script." | tee -a "$log_file"
         exit
     fi
 }
@@ -64,7 +65,7 @@ get_cli_arguments () {
     echo "Enter relative path to service executable (from inside the service folder): " | tee -a "$log_file"
     read -r service_exec
     echo "$service_exec" >> "$log_file"
-    does_file_exist "$service_folder/$service_exec" "$log_file"
+    is_file_exec "$service_folder/$service_exec" "$log_file"
 
     echo "Do you want the script to run silently? (Y/N) " | tee -a "$log_file"
     read -r force
