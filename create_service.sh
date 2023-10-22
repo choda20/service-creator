@@ -142,7 +142,7 @@ create_service_file () {
             sudo mv "$service_file" "$service_file_dest"
             echo "Created the service configuration file" | tee "$log_file"
         fi 
-        
+
     } || {
         echo "could not create service file. Exisiting script." | tee "$log_file"
         remove_service
@@ -157,27 +157,32 @@ reload_service () {
 
 check_service_status () {
     local service="$1"
+    local log_file="$2"
     if [ "$(systemctl is-active "$service")" = "active" ]; then
-        echo "Service started successfully"
+        echo "Service started successfully" | tee "$log_file"
     else
-        echo "Service could not be started"
+        echo "Service could not be started" | tee "$log_file"
     fi
 }
 
 start_service () {
     local service="$1"
-    if [ "$force" = "Y" ]; then
-        reload_service "$service"
-        check_service_status "$service"
-    else
-        echo "In order for the service to start the systemctl daemon needs to be reloaded. reload? (Y/N): "
+    local force="$2"
+    local log_file="$3"
+    local reset_daemon="Y"
+
+    
+    if [ "$force" != "Y" ]; then
+        echo "In order for the service to start the systemctl daemon needs to be reloaded. reload? (Y/N): " | tee "$log_file"
         read -r reset_daemon
-        if [ "$reset_daemon" = "Y" ]; then
-            reload_service "$service"
-            check_service_status "$service"
-        else
-            echo "Service created but was not run."
-        fi
+        echo "$reset_daemon" >> "$log_file"
+    fi
+
+    if [ "$reset_daemon" = "Y" ]; then
+        reload_service "$service" 
+        check_service_status "$service" "$log_file"
+    else
+        echo "Service created but was not run." | tee "$log_file"
     fi
 }
 
@@ -197,7 +202,7 @@ main () {
 
     create_service_file $service_user "$service_name" $service_template "$service_folder_dest" "$script_path" "$force" "$log_file"
 
-    start_service "$service_name" "$log_file"
+    start_service "$service_name" "$force" "$log_file"
 }
 
 main
