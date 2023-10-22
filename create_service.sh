@@ -19,20 +19,12 @@ Help () {
 # Main Program                                                                                                     #
 ####################################################################################################################
 
-does_service_exist () {
-    does_exist=$(systemctl list-units --full -all | grep -Fq "$1.service")
-    if [ "$does_exist" ]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 does_dir_exist () {
-    if [ -d "$1" ]; then
-        return 0
-    else    
-        return 1
+    local dir="$1"
+    local log_file="$2"
+    if [ ! -d "$dir" ]; then
+        echo "The directory provided does not exist. Exisiting script." | tee -a "$log_file"
+        exit
     fi
 }
 
@@ -40,7 +32,7 @@ does_file_exist () {
     local file="$1"
     local log_file="$2"
     if [ ! -f "$file" ]; then
-        echo "The file provided does not exist, or is not a regular file. Exisiting script." | tee "$log_file"
+        echo "The file provided does not exist, or is not a regular file. Exisiting script." | tee -a "$log_file"
         exit
     fi
 }
@@ -48,26 +40,25 @@ does_file_exist () {
 get_cli_arguments () {
     echo "Enter service name: " 
     read -r service_name
-    local log_file="/var/log/$service_name"
-    echo "Service: $service_name" >> "$log_file"
+    sudo mkdir "/var/log/service_creator/" >> /dev/null 2>&1
+    local log_file="/var/log/service_creator/$service_name"
 
-    echo "Enter full path to service folder: " | tee "$log_file"
+    echo "-------------- Service: $service_name --------------" >> "$log_file"
+    
+    echo "Enter full path to service folder: " | tee -a "$log_file"
     read -r service_folder
     echo "$service_folder" >> "$log_file"
-    if [ $(does_dir_exist "$service_folder") -eq 1 ]; then
-        echo "The directory provided does not exist. Exisiting script." | tee "$log_file"
-        exit
-    fi
+    does_dir_exist "$service_folder" "$log_file"
 
-    echo "Enter relative path to service executable (from inside the service folder): " | tee "$log_file"
+    echo "Enter relative path to service executable (from inside the service folder): " | tee -a "$log_file"
     read -r service_exec
     echo "$service_exec" >> "$log_file"
-    does_exec_exist "$service_exec"
+    does_file_exist "$service_exec"
 
-    echo "Do you want the script to run silently? (Y/N) " | tee "$log_file"
+    echo "Do you want the script to run silently? (Y/N) " | tee -a "$log_file"
     read -r force
     echo "$force" >> "$log_file"
-    echo "Starting script with given arguments" | tee "$log_file"
+    echo "Starting script with given arguments" | tee -a "$log_file"
 }
 
 create_user () {
@@ -76,9 +67,9 @@ create_user () {
     if ! id "$username" > /dev/null 2>&1; then
         {
             sudo useradd -r -m -s /sbin/nologin "$username" 
-            echo "service user created successfully." | tee "$log_file"
+            echo "service user created successfully." | tee -a "$log_file"
             } || {
-            echo "service user could not be created. Exisiting script." | tee "$log_file"
+            echo "service user could not be created. Exisiting script." | tee -a "$log_file"
             exit
         }
     else
@@ -97,7 +88,7 @@ move_service_files () {
     local move_files="Y"
     {
         if [ "$force" != "Y" ] && [ $(does_dir_exist $service_folder_dest) -eq 0 ]; then
-            echo "Service Folder $service_folder_dest already exists, and needs to be overriden. override folder? (Y/N): " | tee "$log_file"
+            echo "Service Folder $service_folder_dest already exists, and needs to be overriden. override folder? (Y/N): " | tee -a "$log_file"
             read -r move_files
             echo "$move_files" >> "$log_file"
         fi
@@ -107,11 +98,11 @@ move_service_files () {
             sudo mv "$new_folder_path/$exec_relative_path" "$new_script_path"
             sudo chmod 744 "$new_script_path"
             sudo chown "$user" "$new_script_path"
-            echo "Moved service files to service folder" | tee "$log_file"
+            echo "Moved service files to service folder" | tee -a "$log_file"
         fi
         
     } || {
-        echo "could not move service files to service user directory. Exisiting script." | tee "$log_file"
+        echo "could not move service files to service user directory. Exisiting script." | tee -a "$log_file"
         exit
     }
 }
@@ -129,7 +120,7 @@ create_service_file () {
     local override_service_file="Y"
     {
         if [ "$force" != "Y" ] && [ $(does_file_exist $service_file_dest) -eq 0 ]; then   
-            echo "Service file already exists, override it? (Y/N) " | tee "$log_file"
+            echo "Service file already exists, override it? (Y/N) " | tee -a "$log_file"
             read -r override_service_file
             echo "$override_service_file" >> "$log_file"
         fi
@@ -140,12 +131,12 @@ create_service_file () {
             sudo sed -i "s@<working_directory>@$service_folder_path@g" "$service_file"
             sudo sed -i "s@<script_path>@$exec_path@g" "$service_file"
             sudo mv "$service_file" "$service_file_dest"
-            echo "Created the service configuration file" | tee "$log_file"
+            echo "Created the service configuration file" | tee -a "$log_file"
         fi 
 
     } || {
-        echo "could not create service file. Exisiting script." | tee "$log_file"
-        remove_service
+        echo "could not create service file. Exisiting script." | tee -a "$log_file"
+        exit
     }
 }
 
@@ -159,9 +150,9 @@ check_service_status () {
     local service="$1"
     local log_file="$2"
     if [ "$(systemctl is-active "$service")" = "active" ]; then
-        echo "Service started successfully" | tee "$log_file"
+        echo "Service started successfully" | tee -a "$log_file"
     else
-        echo "Service could not be started" | tee "$log_file"
+        echo "Service could not be started" | tee -a "$log_file"
     fi
 }
 
@@ -173,7 +164,7 @@ start_service () {
 
     
     if [ "$force" != "Y" ]; then
-        echo "In order for the service to start the systemctl daemon needs to be reloaded. reload? (Y/N): " | tee "$log_file"
+        echo "In order for the service to start the systemctl daemon needs to be reloaded. reload? (Y/N): " | tee -a "$log_file"
         read -r reset_daemon
         echo "$reset_daemon" >> "$log_file"
     fi
@@ -182,7 +173,7 @@ start_service () {
         reload_service "$service" 
         check_service_status "$service" "$log_file"
     else
-        echo "Service created but was not run." | tee "$log_file"
+        echo "Service created but was not run." | tee -a "$log_file"
     fi
 }
 
