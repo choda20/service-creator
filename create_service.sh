@@ -122,15 +122,29 @@ create_service_file () {
     local service_file_template="$3"
     local service_folder_path="$4"
     local exec_path="$5"
+    local force="$6"
+    local log_file="$7"
+    local service_file="/home/$user/$name_of_service/$name_of_service.service"
+    local service_file_dest="/etc/systemd/system/$name_of_service.service"
+    local override_service_file="Y"
     {
-        local service_file="/home/$user/$name_of_service/$name_of_service.service"
-        sudo cp -r "$service_file_template" "$service_file"
-        sudo sed -i "s@<user>@$user@g" "$service_file"
-        sudo sed -i "s@<working_directory>@$service_folder_path@g" "$service_file"
-        sudo sed -i "s@<script_path>@$exec_path@g" "$service_file"
-        sudo mv "$service_file" "/etc/systemd/system/$name_of_service.service"
+        if [ "$force" != "Y" ] && [ $(does_file_exist $service_file_dest) -eq 0 ]; then   
+            echo "Service file already exists, override it? (Y/N) " | tee "$log_file"
+            read -r override_service_file
+            echo "$override_service_file" >> "$log_file"
+        fi
+
+        if [ "$override_service_file" = "Y" ]; then
+            sudo cp -r "$service_file_template" "$service_file"
+            sudo sed -i "s@<user>@$user@g" "$service_file"
+            sudo sed -i "s@<working_directory>@$service_folder_path@g" "$service_file"
+            sudo sed -i "s@<script_path>@$exec_path@g" "$service_file"
+            sudo mv "$service_file" "$service_file_dest"
+            echo "Created the service configuration file" | tee "$log_file"
+        fi 
+        
     } || {
-        echo "could not create service file. Exisiting script."
+        echo "could not create service file. Exisiting script." | tee "$log_file"
         remove_service
     }
 }
@@ -181,7 +195,7 @@ main () {
 
     move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path" $service_user  "$force" "$log_file"
 
-    create_service_file $service_user "$service_name" $service_template "$service_folder_dest" "$script_path" "$log_file"
+    create_service_file $service_user "$service_name" $service_template "$service_folder_dest" "$script_path" "$force" "$log_file"
 
     start_service "$service_name" "$log_file"
 }
