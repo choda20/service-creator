@@ -36,9 +36,12 @@ does_dir_exist () {
     fi
 }
 
-does_exec_exist () {
-    if [ ! -f "$1" ]; then
+does_file_exist () {
+    local file="$1"
+    local log_file="$2"
+    if [ ! -f "$file" ]; then
         echo "The file provided does not exist, or is not a regular file. Exisiting script."
+        echo "The file provided does not exist, or is not a regular file. Exisiting script." >> "$log_file"
         exit
     fi
 }
