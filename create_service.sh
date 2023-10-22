@@ -72,14 +72,17 @@ get_cli_arguments () {
 
 create_user () {
     local username="$1"
+    local log_file="$2"
     if ! id "$username" > /dev/null 2>&1; then
         {
             sudo useradd -r -m -s /sbin/nologin "$username" 
-            echo "service user created successfully."
+            echo "service user created successfully." | tee "$log_file"
             } || {
-            echo "service user could not be created. Exisiting script."
+            echo "service user could not be created. Exisiting script." | tee "$log_file"
             exit
         }
+    else
+        echo "User already exists, preceeding" >> "$log_file"
     fi
 }
 
@@ -167,15 +170,15 @@ main () {
         echo "Service Folder $service_folder_dest already exists, and needs to be overriden. override folder? (Y/N): "
         read -r move_service_files_prompt
         if [ "$move_service_files_prompt" = "Y" ]; then
-            move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path" $service_user
+            move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path" $service_user "$log_file"
         fi
     else
-        move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path" $service_user
+        move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path" $service_user "$log_file"
     fi
 
-    create_service_file $service_user "$service_name" $service_template "$service_folder_dest" "$script_path"
+    create_service_file $service_user "$service_name" $service_template "$service_folder_dest" "$script_path" "$log_file"
 
-    start_service "$service_name"
+    start_service "$service_name" "$log_file"
 }
 
 main
