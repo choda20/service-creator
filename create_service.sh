@@ -40,31 +40,34 @@ does_file_exist () {
     local file="$1"
     local log_file="$2"
     if [ ! -f "$file" ]; then
-        echo "The file provided does not exist, or is not a regular file. Exisiting script."
-        echo "The file provided does not exist, or is not a regular file. Exisiting script." >> "$log_file"
+        echo "The file provided does not exist, or is not a regular file. Exisiting script." | tee "$log_file"
         exit
     fi
 }
 
 get_cli_arguments () {
-    echo "Enter service name: "
+    echo "Enter service name: " 
     read -r service_name
+    local log_file="/var/log/$service_name"
+    echo "Service: $service_name" >> "$log_file"
 
-    echo "Enter full path to service folder: "
+    echo "Enter full path to service folder: " | tee "$log_file"
     read -r service_folder
+    echo "$service_folder" >> "$log_file"
     if [ $(does_dir_exist "$service_folder") -eq 1 ]; then
-        echo "The directory provided does not exist. Exisiting script."
+        echo "The directory provided does not exist. Exisiting script." | tee "$log_file"
         exit
     fi
 
-    echo "Enter relative path to service executable (from inside the service folder): "
+    echo "Enter relative path to service executable (from inside the service folder): " | tee "$log_file"
     read -r service_exec
+    echo "$service_exec" >> "$log_file"
     does_exec_exist "$service_exec"
 
-    echo "Do you want the script to run silently? (Y/N) "
+    echo "Do you want the script to run silently? (Y/N) " | tee "$log_file"
     read -r force
-
-    echo "Starting script with given arguments"
+    echo "$force" >> "$log_file"
+    echo "Starting script with given arguments" | tee "$log_file"
 }
 
 create_user () {
@@ -154,11 +157,11 @@ main () {
 
     get_cli_arguments
 
-    update_service=$(does_service_exist "$service_name")
+    log_file="/var/log/$service_name"
     service_folder_dest="/home/$service_user/$service_name"
     script_path="/usr/local/bin/$service_name.sh"
 
-    create_user "$service_user"
+    create_user "$service_user" "$log_file"
 
     if [ "$force" != "Y" ] && [ $(does_dir_exist $service_folder_dest) -eq 0 ]; then
         echo "Service Folder $service_folder_dest already exists, and needs to be overriden. override folder? (Y/N): "
@@ -173,14 +176,6 @@ main () {
     create_service_file $service_user "$service_name" $service_template "$service_folder_dest" "$script_path"
 
     start_service "$service_name"
-}
-
-remove_service() {
-    sudo rm -r /home/service_agent/test_service > /dev/null 2>&1
-    sudo rm /home/service_agent/service_log.txt > /dev/null 2>&1
-    sudo rm /etc/systemd/system/test_service.service > /dev/null 2>&1
-    sudo rm /usr/local/bin/test_service.sh > /dev/null 2>&1
-    exit
 }
 
 main
