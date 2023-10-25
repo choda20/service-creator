@@ -23,8 +23,10 @@ does_dir_exist () {
     local dir="$1"
     local log_file="$2"
     if [ ! -d "$dir" ]; then
-        echo "The directory provided does not exist. Exiting script." | tee -a "$log_file"
-        exit
+        echo "The directory provided does not exist. Please try again." | tee -a "$log_file"
+        return 0
+    else
+        return 1
     fi
 }
 
@@ -33,8 +35,10 @@ is_file_exec () {
     local log_file="$2"
     local file_type=$(file -b "$file")
     if [ ! -x "$file" ] && [[ "$file_type" != *script* ]]; then
-        echo "The file provided does not exist, or is not a script/executable file. Exiting script." | tee -a "$log_file"
-        exit
+        echo "The file provided does not exist, or is not a script/executable file. Please try again." | tee -a "$log_file"
+        return 0
+    else
+        return 1
     fi
 }
 
@@ -44,9 +48,10 @@ validate_Y/N () {
     local valid_answers=("Y" "N" "y" "n")
     if [[ ${valid_answers[*]} =~ $answer ]]; then
         echo "Valid answer: '$answer'" >> "$log_file"
+        return 1
     else 
-        echo "Invalid answer: '$answer', Exiting script." | tee -a "$log_file"
-        exit
+        echo "Invalid answer: '$answer', Please try again." | tee -a "$log_file"
+        return 0
     fi
 }
 
@@ -58,19 +63,32 @@ get_cli_arguments () {
 
     echo "-------------- Service: $service_name --------------" >> "$log_file"
     
-    echo "Enter full path to service folder: " | tee -a "$log_file"
-    read -r service_folder
-    echo "$service_folder" >> "$log_file"
-    does_dir_exist "$service_folder" "$log_file"
+    local valid_service_folder=0
+    while [ $valid_service_folder -eq 0 ]; do
+        echo "Enter full path to service folder: " | tee -a "$log_file"
+        read -r service_folder
+        echo "$service_folder" >> "$log_file"
+        does_dir_exist "$service_folder" "$log_file"
+        valid_service_folder=$?
+    done
 
-    echo "Enter relative path to service executable (from inside the service folder): " | tee -a "$log_file"
-    read -r service_exec
-    echo "$service_exec" >> "$log_file"
-    is_file_exec "$service_folder/$service_exec" "$log_file"
+    local valid_service_exec=0
+    while [ $valid_service_exec -eq 0 ]; do
+        echo "Enter relative path to service executable (from inside the service folder): " | tee -a "$log_file"
+        read -r service_exec
+        echo "$service_exec" >> "$log_file"
+        is_file_exec "$service_folder/$service_exec" "$log_file"
+        valid_service_exec=$?
+    done
 
-    echo "Do you want the script to run silently? (Y/N) " | tee -a "$log_file"
-    read -r force
-    validate_Y/N "$force" "$log_file"
+    local valid_force=0
+    while [ $valid_force -eq 0 ]; do
+        echo "Do you want the script to run silently? (Y/N) " | tee -a "$log_file"
+        read -r force
+        validate_Y/N "$force" "$log_file"
+        valid_force=$?
+    done
+
     echo "Starting script with given arguments" | tee -a "$log_file"
 }
 
@@ -108,7 +126,7 @@ move_service_files () {
 
         if [ "$move_files" = "Y" ] || [ "$move_files" = "y" ]; then
             sudo cp -r "$original_folder_path" "$new_folder_path"
-            sudo mv "$new_folder_path/${original_folder_path##*/}/$exec_relative_path" "$new_script_path"
+            sudo mv "$new_folder_path/$exec_relative_path" "$new_script_path"
             sudo chmod 744 "$new_script_path"
             sudo chown "$user" "$new_script_path"
             echo "Moved service files to service folder" | tee -a "$log_file"
