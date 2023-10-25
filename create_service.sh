@@ -7,12 +7,13 @@ Help () {
     echo "This is a bash script that creates a basic service from a given folder."
     echo "The purpose of this script is to automate service creation."
     echo "In order for the script to work it has to be run by a user with root privileges."
-    echo "the script gets 4 parameters:"
-    echo "  - service_name: the desired name of the service"
-    echo "  - service_folder: the folder of the service files"
-    echo "  - service_exec: the service executable"
-    echo "  - silent: a parameter signaling if the script should get user input (False, default option)"
-    echo "           or show logs only (True)"
+    echo "Script Flags:"
+    echo "  -i: interactive mode, gets input from the user instead of flag passing"
+    echo "  -f: a path to the folder of the service files"
+    echo "  -e: relative path of the service exec inside the folder"
+    echo "  -n: the name of the service"
+    echo "  -s: should the script ask for confrimation when deleting files(Y/N, y/n)"
+    echo "Important note: flag i cannot be used with f/e/n/s, and flags f/e/n/s must be used together."
 }
 
 ####################################################################################################################
