@@ -41,11 +41,12 @@ is_file_exec () {
 validate_Y/N () {
     local answer="$1"
     local log_file="$2"
-    if [ "$answer" != "Y" ] && [ "$answer" != "N" ]; then
+    local valid_answers=("Y" "N" "y" "n")
+    if [[ ${valid_answers[*]} =~ $answer ]]; then
+        echo "Valid answer: '$answer'" >> "$log_file"
+    else 
         echo "Invalid answer: '$answer', Exiting script." | tee -a "$log_file"
         exit
-    else 
-        echo "Valid answer: '$answer'" >> "$log_file"
     fi
 }
 
@@ -99,13 +100,13 @@ move_service_files () {
     local log_file="$7"
     local move_files="Y"
     {
-        if [ "$force" != "Y" ] && [ -d "$new_folder_path" ]; then
+        if [ "$force" != "Y" ] && [ "$force" != "y" ] && [ -d "$new_folder_path" ]; then
             echo "Service Folder $new_folder_path already exists, and needs to be overriden. override folder? (Y/N): " | tee -a "$log_file"
             read -r move_files
             validate_Y/N "$move_files" "$log_file"
         fi
 
-        if [ "$move_files" = "Y" ]; then
+        if [ "$move_files" = "Y" ] || [ "$move_files" = "y" ]; then
             sudo cp -r "$original_folder_path" "$new_folder_path"
             sudo mv "$new_folder_path/${original_folder_path##*/}/$exec_relative_path" "$new_script_path"
             sudo chmod 744 "$new_script_path"
@@ -131,13 +132,13 @@ create_service_file () {
     local service_file_dest="/etc/systemd/system/$name_of_service.service"
     local override_service_file="Y"
     {
-        if [ "$force" != "Y" ] && [ -f "$service_file_dest" ]; then   
+        if [ "$force" != "Y" ] && [ "$force" != "y" ] && [ -f "$service_file_dest" ]; then   
             echo "Service file already exists, override it? (Y/N) " | tee -a "$log_file"
             read -r override_service_file
             validate_Y/N "$override_service_file" "$log_file"
         fi
 
-        if [ "$override_service_file" = "Y" ]; then
+        if [ "$override_service_file" = "Y" ] || [ "$override_service_file" = "y" ]; then
             sudo cp -r "$service_file_template" "$service_file"
             sudo sed -i "s@<user>@$user@g" "$service_file"
             sudo sed -i "s@<working_directory>@$service_folder_path@g" "$service_file"
@@ -175,13 +176,13 @@ start_service () {
     local reset_daemon="Y"
 
     
-    if [ "$force" != "Y" ]; then
+    if [ "$force" != "Y" ] && [ "$force" != "y" ]; then
         echo "In order for the service to start the systemctl daemon needs to be reloaded. reload? (Y/N): " | tee -a "$log_file"
         read -r reset_daemon
         validate_Y/N "$reset_daemon" "$log_file"
     fi
 
-    if [ "$reset_daemon" = "Y" ]; then
+    if [ "$reset_daemon" = "Y" ] || [ "$reset_daemon" = "y" ]; then
         reload_service "$service" 
         check_service_status "$service" "$log_file"
     else
