@@ -11,7 +11,7 @@ Help () {
     echo "  - service_name: the desired name of the service"
     echo "  - service_folder: the folder of the service files"
     echo "  - service_exec: the service executable"
-    echo "  - force: a parameter signaling if the script should get user input (False, default option)"
+    echo "  - silent: a parameter signaling if the script should get user input (False, default option)"
     echo "           or show logs only (True)"
 }
 
@@ -81,13 +81,45 @@ get_cli_arguments () {
         valid_service_exec=$?
     done
 
-    local valid_force=0
-    while [ $valid_force -eq 0 ]; do
+    local valid_silent=0
+    while [ $valid_silent -eq 0 ]; do
         echo "Do you want the script to run silently? (Y/N) " | tee -a "$log_file"
-        read -r force
-        validate_Y/N "$force" "$log_file"
-        valid_force=$?
+        read -r silent
+        validate_Y/N "$silent" "$log_file"
+        valid_silent=$?
     done
+
+    echo "Starting script with given arguments" | tee -a "$log_file"
+}
+
+check_flag_arguments () {
+    sudo mkdir -p "/var/log/service_creator/" 
+    local log_file="/var/log/service_creator/$service_name"
+
+    echo "-------------- Service: $service_name --------------" >> "$log_file"
+    
+    echo "$service_folder" >> "$log_file"
+    does_dir_exist "$service_folder" "$log_file"
+    valid_service_folder=$?
+    if [ $valid_service_folder -eq 0 ]; then
+        echo "-f flag value is invalid. try again." | tee -a "$log_file"
+        exit
+    fi
+
+    echo "$service_exec" >> "$log_file"
+    is_file_exec "$service_folder/$service_exec" "$log_file"
+    valid_service_exec=$?    
+    if [ $valid_service_exec -eq 0 ]; then
+        echo "-e flag value is invalid. try again." | tee -a "$log_file"
+        exit
+    fi
+
+    validate_Y/N "$silent" "$log_file"
+    valid_silent=$?
+    if [ $valid_silent -eq 0 ]; then
+        echo "-s flag value is invalid. try again." | tee -a "$log_file"
+        exit
+    fi
 
     echo "Starting script with given arguments" | tee -a "$log_file"
 }
@@ -114,11 +146,11 @@ move_service_files () {
     local exec_relative_path="$3"
     local new_script_path="$4"
     local user="$5"
-    local force="$6"
+    local silent="$6"
     local log_file="$7"
     local move_files="Y"
     {
-        if [ "$force" != "Y" ] && [ "$force" != "y" ] && [ -d "$new_folder_path" ]; then
+        if [ "$silent" != "Y" ] && [ "$silent" != "y" ] && [ -d "$new_folder_path" ]; then
             echo "Service Folder $new_folder_path already exists, and needs to be overriden. override folder? (Y/N): " | tee -a "$log_file"
             read -r move_files
             validate_Y/N "$move_files" "$log_file"
@@ -144,13 +176,13 @@ create_service_file () {
     local service_file_template="$3"
     local service_folder_path="$4"
     local exec_path="$5"
-    local force="$6"
+    local silent="$6"
     local log_file="$7"
     local service_file="/home/$user/$name_of_service/$name_of_service.service"
     local service_file_dest="/etc/systemd/system/$name_of_service.service"
     local override_service_file="Y"
     {
-        if [ "$force" != "Y" ] && [ "$force" != "y" ] && [ -f "$service_file_dest" ]; then   
+        if [ "$silent" != "Y" ] && [ "$silent" != "y" ] && [ -f "$service_file_dest" ]; then   
             echo "Service file already exists, override it? (Y/N) " | tee -a "$log_file"
             read -r override_service_file
             validate_Y/N "$override_service_file" "$log_file"
@@ -189,12 +221,12 @@ check_service_status () {
 
 start_service () {
     local service="$1"
-    local force="$2"
+    local silent="$2"
     local log_file="$3"
     local reset_daemon="Y"
 
     
-    if [ "$force" != "Y" ] && [ "$force" != "y" ]; then
+    if [ "$silent" != "Y" ] && [ "$silent" != "y" ]; then
         echo "In order for the service to start the systemctl daemon needs to be reloaded. reload? (Y/N): " | tee -a "$log_file"
         read -r reset_daemon
         validate_Y/N "$reset_daemon" "$log_file"
@@ -218,28 +250,74 @@ main () {
 
     create_user "$service_user" "$log_file"
 
-    move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path_dest" $service_user  "$force" "$log_file"
+    move_service_files "$service_folder" "$service_folder_dest" "$service_exec" "$script_path_dest" $service_user  "$silent" "$log_file"
 
-    create_service_file $service_user "$service_name" $service_template "$service_folder_dest" "$script_path_dest" "$force" "$log_file"
+    create_service_file $service_user "$service_name" $service_template "$service_folder_dest" "$script_path_dest" "$silent" "$log_file"
 
-    start_service "$service_name" "$force" "$log_file"
+    start_service "$service_name" "$silent" "$log_file"
 }
 
 
 ####################################################################################################################
 # Flag Handling                                                                                                    #
 ####################################################################################################################
-while getopts ":ih" option; do
+service_name=0
+service_folder=0
+service_exec=0
+silent=0
+interactive_mode_flag=0
+while getopts ":ihn:f:e:s:" option; do
     case $option in
-        i) # interactive mode
-            get_cli_arguments
-            main;;
-        h) # display help
+        i) # Interactive mode
+            interactive_mode_flag=1
+            ;;
+        n) # Service name
+            service_name="$OPTARG"
+            ;;
+        f) # Service files folder
+            service_folder="$OPTARG"
+            ;;
+        e) # Service exec path
+            service_exec="$OPTARG"
+            ;;
+        s) # Run silently
+            silent="$OPTARG"
+            ;;
+        h) # Display help
             Help
             exit;;
-        \?) # incorrect option
+        \?) # Error for incorrect flags
             echo "Error: Invalid option"
+            exit;;
+        :) # Error for flags without arguments
+            echo "Flag -$OPTARG requires an argument." >&2
             exit;;
     esac
 done
+
+none_interactive_flags=0
+if [[ "$service_name" != "0"  || "$service_folder" != "0" ||  $service_exec != "0" ||  $silent != "0" ]]; then
+    none_interactive_flags=1
+fi
+
+all_none_interactive_flags=0
+if [[ "$service_name" != "0"  && "$service_folder" != "0"  &&  "$service_exec" != "0" &&  "$silent" != "0" ]]; then
+    all_none_interactive_flags=1
+fi
+
+if [ $interactive_mode_flag -eq 1 ] && [ $none_interactive_flags -eq 0 ]; then
+    get_cli_arguments
+    main
+elif [ $interactive_mode_flag -eq 0 ] && [ $all_none_interactive_flags -eq 1 ]; then
+    check_flag_arguments
+    main
+elif [ $interactive_mode_flag -eq 1 ] && [ $none_interactive_flags -eq 1 ]; then
+    echo "Flag -i cannot be used with flags -n,-f,-e,-s."
+    exit
+else
+    echo "Invalid flags, try -h for help."
+    exit
+fi
+
+
             
