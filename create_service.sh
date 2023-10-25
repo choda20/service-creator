@@ -53,7 +53,7 @@ validate_Y/N () {
 get_cli_arguments () {
     echo "Enter service name: " 
     read -r service_name
-    sudo mkdir "/var/log/service_creator/" >> /dev/null 2>&1
+    sudo mkdir -p "/var/log/service_creator/" 
     local log_file="/var/log/service_creator/$service_name"
 
     echo "-------------- Service: $service_name --------------" >> "$log_file"
