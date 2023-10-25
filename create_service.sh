@@ -126,7 +126,7 @@ move_service_files () {
 
         if [ "$move_files" = "Y" ] || [ "$move_files" = "y" ]; then
             sudo cp -r "$original_folder_path" "$new_folder_path"
-            sudo mv "$new_folder_path/$exec_relative_path" "$new_script_path"
+            sudo mv "$new_folder_path/${original_folder_path##*/}/$exec_relative_path" "$new_script_path"
             sudo chmod 744 "$new_script_path"
             sudo chown "$user" "$new_script_path"
             echo "Moved service files to service folder" | tee -a "$log_file"
@@ -212,8 +212,6 @@ main () {
     service_user="service_agent"
     service_template="service_template.txt"
 
-    get_cli_arguments
-
     log_file="/var/log/service_creator/$service_name"
     service_folder_dest="/home/$service_user/$service_name"
     script_path_dest="/usr/local/bin/$service_name.sh"
@@ -227,12 +225,15 @@ main () {
     start_service "$service_name" "$force" "$log_file"
 }
 
-main
+
 ####################################################################################################################
 # Flag Handling                                                                                                    #
 ####################################################################################################################
-while getopts ":h" option; do
+while getopts ":ih" option; do
     case $option in
+        i) # interactive mode
+            get_cli_arguments
+            main;;
         h) # display help
             Help
             exit;;
