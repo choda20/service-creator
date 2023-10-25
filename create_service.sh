@@ -1,16 +1,4 @@
 #!/bin/bash
-# TODO: each TODO will be relevant to the line above it.
-# Feel free to ask me for details
-# Overall the script is well made and organized
-
-# TODO: Working with git
-# 3 branches
-# main - production ready, CR'ed code
-# dev - development code, CR'ed code which has yet to be used on production
-# feat/name fix/name - experimental code, untested, may not work
-
-# YOU MAY ONLY MERGE upon a cr from me
-# This way we will have a version for every need and I will be able to use git's review features
 
 ####################################################################################################################
 # Help                                                                                                             #
@@ -58,9 +46,6 @@ is_file_exec () {
 validate_Y/N () {
     local answer="$1"
     local log_file="$2"
-    # TODO: allow y and n as possible answers
-    # Allow for another input upon failure, do not exit
-    # This is not user friendly
     local valid_answers=("Y" "N" "y" "n")
     if [[ ${valid_answers[*]} =~ $answer ]]; then
         echo "Valid answer: '$answer'" >> "$log_file"
@@ -74,11 +59,7 @@ validate_Y/N () {
 get_cli_arguments () {
     echo "Enter service name: " 
     read -r service_name
-    # TODO: Nice ui, but this makes the service unusable when running in another script
-    # For example, a cicd flow
-    # Use flags for information ~you may leave this option as a -i option (interactive)~
     sudo mkdir -p "/var/log/service_creator/" 
-    # TODO: Look into the -p flag ^^
     local log_file="/var/log/service_creator/$service_name"
 
     echo "-------------- Service: $service_name --------------" >> "$log_file"
@@ -179,9 +160,6 @@ move_service_files () {
         if [ "$move_files" = "Y" ] || [ "$move_files" = "y" ]; then
             sudo cp -r "$original_folder_path" "$new_folder_path"
             sudo mv "$new_folder_path/${original_folder_path##*/}/$exec_relative_path" "$new_script_path"
-            # TODO: look into this line
-            # Place the executable in a new folder
-            # This allows for dlls or configuration files to be used by the program
             sudo chmod 744 "$new_script_path"
             sudo chown "$user" "$new_script_path"
             echo "Moved service files to service folder" | tee -a "$log_file"
@@ -202,7 +180,6 @@ create_service_file () {
     local silent="$6"
     local log_file="$7"
     local service_file="/etc/systemd/system/$name_of_service.service"
-    # TODO: Why do you use a temporary file for the service file?
     local override_service_file="Y"
     {
         if [ "$silent" != "Y" ] && [ "$silent" != "y" ] && [ -f "$service_file" ]; then   
