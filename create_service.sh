@@ -179,11 +179,10 @@ create_service_file () {
     local exec_path="$5"
     local silent="$6"
     local log_file="$7"
-    local service_file="/home/$user/$name_of_service/$name_of_service.service"
-    local service_file_dest="/etc/systemd/system/$name_of_service.service"
+    local service_file="/etc/systemd/system/$name_of_service.service"
     local override_service_file="Y"
     {
-        if [ "$silent" != "Y" ] && [ "$silent" != "y" ] && [ -f "$service_file_dest" ]; then   
+        if [ "$silent" != "Y" ] && [ "$silent" != "y" ] && [ -f "$service_file" ]; then   
             echo "Service file already exists, override it? (Y/N) " | tee -a "$log_file"
             read -r override_service_file
             validate_Y/N "$override_service_file" "$log_file"
@@ -194,7 +193,6 @@ create_service_file () {
             sudo sed -i "s@<user>@$user@g" "$service_file"
             sudo sed -i "s@<working_directory>@$service_folder_path@g" "$service_file"
             sudo sed -i "s@<script_path>@$exec_path@g" "$service_file"
-            sudo mv "$service_file" "$service_file_dest"
             echo "Created the service configuration file" | tee -a "$log_file"
         fi 
 
@@ -247,7 +245,7 @@ main () {
 
     log_file="/var/log/service_creator/$service_name"
     service_folder_dest="/home/$service_user/$service_name"
-    script_path_dest="/usr/local/bin/$service_name.sh"
+    script_path_dest="/usr/local/bin/$service_name/$service_name.sh"
 
     create_user "$service_user" "$log_file"
 
